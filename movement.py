@@ -2,6 +2,23 @@ class TelloMovement:
     def __init__(self, networking):
         self.networking = networking
 
+    def send_rc_control(self, left_right, forward_backward, up_down, yaw):
+        """
+        Send RC control commands to the drone.
+        Arguments:
+            left_right: -100 to 100
+            forward_backward: -100 to 100
+            up_down: -100 to 100
+            yaw: -100 to 100
+        """
+        command = f"rc {left_right} {forward_backward} {up_down} {yaw}"
+        # We don't want to print every rc command, so we call the base sender
+        try:
+            self.networking.sock.sendto(command.encode('utf-8'), self.networking.TELLO_ADDRESS)
+        except Exception as e:
+            print(f"Error sending rc command: {e}")
+
+
     def takeoff(self):
         """Sends the takeoff command."""
         self.networking.send_command('takeoff')
@@ -10,38 +27,9 @@ class TelloMovement:
         """Sends the land command."""
         self.networking.send_command('land')
 
-    def up(self):
-        """Moves the drone up by 20 cm."""
-        self.networking.send_command('up 20')
+    def stop(self):
+        """Sends the emergency stop command."""
+        self.networking.send_command('stop')
 
-    def down(self):
-        """Moves the drone down by 20 cm."""
-        self.networking.send_command('down 20')
-
-    def forward(self):
-        """Moves the drone forward by 40 cm."""
-        self.networking.send_command('forward 40')
-
-    def back(self):
-        """Moves the drone backward by 40 cm."""
-        self.networking.send_command('back 40')
-
-    def right(self):
-        """Moves the drone right by 40 cm."""
-        self.networking.send_command('right 40')
-
-    def left(self):
-        """Moves the drone left by 40 cm."""
-        self.networking.send_command('left 40')
-
-    def cw(self):
-        """Rotates the drone clockwise by 90 degrees."""
-        self.networking.send_command('cw 90')
-
-    def ccw(self):
-        """Rotates the drone counter-clockwise by 90 degrees."""
-        self.networking.send_command('ccw 90')
-
-    def set_speed(self, n=40):
-        """Sets the drone's speed."""
-        self.networking.send_command(f'speed {n}')
+    # Note: The old movement functions (up, down, forward, etc.) are no longer
+    # used by main.py but can be kept for other potential uses.
