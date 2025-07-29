@@ -5,6 +5,7 @@ import time
 import numpy as np
 
 # データ受け取り用の関数
+# Translate: Function to receive data
 def udp_receiver():
         global battery_text
         global time_text
@@ -14,10 +15,12 @@ def udp_receiver():
             try:
                 data, server = sock.recvfrom(1518)
                 resp = data.decode(encoding="utf-8").strip()
+                # Translate: If the response is only numbers, it indicates battery level
                 # レスポンスが数字だけならバッテリー残量
                 if resp.isdecimal():    
                     battery_text = "Battery:" + resp + "%"
                 # 最後の文字がsなら飛行時間
+                # Translate: If the last character is 's', it indicates flight time
                 elif resp[-1:] == "s":
                     time_text = "Time:" + resp
                 else: 
@@ -26,6 +29,7 @@ def udp_receiver():
                 pass
 
 # 問い合わせ
+# Translate: Function to ask for battery and time status
 def ask():
     while True:
         try:
@@ -42,6 +46,7 @@ def ask():
 
 
 # 離陸
+# Translate: Function to take off the drone
 def takeoff():
         print("-----")
         try:
@@ -49,54 +54,67 @@ def takeoff():
         except:
             pass
 # 着陸
+# Translate: Function to land the drone
 def land():
         try:
             sent = sock.sendto('land'.encode(encoding="utf-8"), TELLO_ADDRESS)
         except:
             pass
 # 上昇(20cm)
+# Translate: Function to ascend the drone by 20 cm
 def up():
         try:
             sent = sock.sendto('up 20'.encode(encoding="utf-8"), TELLO_ADDRESS)
         except:
             pass
 # 下降(20cm)
+# Translate: Function to descend the drone by 20 cm
 def down():
         try:
             sent = sock.sendto('down 20'.encode(encoding="utf-8"), TELLO_ADDRESS)
         except:
             pass
 # 前進(40cm)
+# Translate: Function to move the drone forward by 40 cm
 def forward():
         try:
             sent = sock.sendto('forward 40'.encode(encoding="utf-8"), TELLO_ADDRESS)
         except:
             pass
+
 # 後進(40cm)
+# Translate: Function to move the drone backward by 40 cm
 def back():
         try:
             sent = sock.sendto('back 40'.encode(encoding="utf-8"), TELLO_ADDRESS)
         except:
             pass
+
 # 右に進む(40cm)
+# Translate: Function to move the drone right by 40 cm
 def right():
         try:
             sent = sock.sendto('right 40'.encode(encoding="utf-8"), TELLO_ADDRESS)
         except:
             pass
+
 # 左に進む(40cm)
+# Translate: Function to move the drone left by 40 cm
 def left():
         try:
             sent = sock.sendto('left 40'.encode(encoding="utf-8"), TELLO_ADDRESS)
         except:
             pass
+
 # 右回りに回転(90 deg)
+# Translate: Function to rotate the drone clockwise by 90 degrees
 def cw():
         try:
             sent = sock.sendto('cw 90'.encode(encoding="utf-8"), TELLO_ADDRESS)
         except:
             pass
 # 左回りに回転(90 deg)
+# Translate: Function to rotate the drone counterclockwise by 90 degrees
 def ccw():
         try:
             sent = sock.sendto('ccw 90'.encode(encoding="utf-8"), TELLO_ADDRESS)
@@ -117,6 +135,7 @@ def ccw_slow():
             pass
 
 # 速度変更(例：速度40cm/sec, 0 < speed < 100)
+# Translate: Function to set the speed of the drone
 def set_speed(n=40):
         try:
             sent = sock.sendto(f'speed {n}'.encode(encoding="utf-8"), TELLO_ADDRESS)
@@ -133,8 +152,8 @@ def set_speed(n=40):
 TELLO_CAMERA_ADDRESS = 'udp://@0.0.0.0:11111?overrun_nonfatal=1&fifo_size=50000000'
 
 TELLO_PORT= 8889
-TELLO_IP = '192.168.10.1'
-# TELLO_IP = '192.168.0.11'
+TELLO_IP = '192.168.10.1' # Standard Tello IP
+# TELLO_IP = '192.168.0.11' # Custom IP from main branch
 TELLO_ADDRESS = (TELLO_IP , TELLO_PORT)
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -158,8 +177,7 @@ sock.bind(('', TELLO_PORT))
 
 # 問い合わせスレッド起動
 ask_thread = threading.Thread(target=ask)
-ask_thread.deamon = True
-# ask_thread.setDaemon(True)
+ask_thread.daemon = True # Use attribute assignment (modern way)
 ask_thread.start()
 
 # 受信用スレッドの作成
@@ -285,6 +303,14 @@ while True:
     elif key == ord('e'):
         cw()
         command_text = "Cw"
+    # ,キーで左回りにゆっくり回転
+    elif key == ord(','):
+        ccw_slow()
+        command_text = "Slow CCW"
+    # .キーで右回りにゆっくり回転
+    elif key == ord('.'):
+        cw_slow()
+        command_text = "Slow CW"
     # mキーで速度変更
     elif key == ord('m'):
         set_speed()
