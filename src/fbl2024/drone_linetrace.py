@@ -127,7 +127,8 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind(('', TELLO_PORT))
 # 問い合わせスレッド起動
 ask_thread = threading.Thread(target=ask)
-ask_thread.setDaemon(True)
+# ask_thread.setDaemon(True)
+ask_thread.daemon
 ask_thread.start()
 # 受信用スレッドの作成
 recv_thread = threading.Thread(target=udp_receiver, args=())

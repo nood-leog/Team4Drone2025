@@ -119,7 +119,8 @@ def set_speed(n=40):
 TELLO_CAMERA_ADDRESS = 'udp://@0.0.0.0:11111?overrun_nonfatal=1&fifo_size=50000000'
 
 TELLO_PORT= 8889
-TELLO_IP = '192.168.0.11'
+TELLO_IP = '192.168.10.1'
+# TELLO_IP = '192.168.0.11'
 TELLO_ADDRESS = (TELLO_IP , TELLO_PORT)
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -143,7 +144,8 @@ sock.bind(('', TELLO_PORT))
 
 # 問い合わせスレッド起動
 ask_thread = threading.Thread(target=ask)
-ask_thread.setDaemon(True)
+ask_thread.deamon = True
+# ask_thread.setDaemon(True)
 ask_thread.start()
 
 # 受信用スレッドの作成

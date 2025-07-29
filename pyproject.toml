@@ -1,0 +1,29 @@
+[project]
+name = "fbl2024"
+version = "0.1.0"
+description = "Add your description here"
+authors = [
+    { name = "This-is-UserNamee", email = "so1031eg@gmail.com" }
+]
+dependencies = [
+    "djitellopy==2.5.0",
+    "numpy==2.0.0",
+    "opencv-python==4.10.0.84",
+    "pillow==10.3.0",
+]
+readme = "README.md"
+requires-python = ">= 3.8"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+dev-dependencies = []
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fbl2024"]
