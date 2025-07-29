@@ -24,3 +24,24 @@ opencv-python==4.10.0.84
 pillow==10.3.0
     # via djitellopy
     # via fbl2024
+pynput==1.8.1
+    # via fbl2024
+pyobjc-core==11.1
+    # via pyobjc-framework-applicationservices
+    # via pyobjc-framework-cocoa
+    # via pyobjc-framework-coretext
+    # via pyobjc-framework-quartz
+pyobjc-framework-applicationservices==11.1
+    # via pynput
+pyobjc-framework-cocoa==11.1
+    # via pyobjc-framework-applicationservices
+    # via pyobjc-framework-coretext
+    # via pyobjc-framework-quartz
+pyobjc-framework-coretext==11.1
+    # via pyobjc-framework-applicationservices
+pyobjc-framework-quartz==11.1
+    # via pynput
+    # via pyobjc-framework-applicationservices
+    # via pyobjc-framework-coretext
+six==1.17.0
+    # via pynput
