@@ -70,6 +70,19 @@ def main():
             command_text = "EMERGENCY STOP"
             # Reset all RC values to 0
             for k in key_states: key_states[k] = False
+        #flip commands
+        elif key == ord('u'):
+            movement.flipForward()
+            command_text = "Flip Forward"
+        elif key == ord('i'):
+            movement.flipBackward()
+            command_text = "Flip Backward"
+        elif key == ord('o'):
+            movement.flipLeft()
+            command_text = "Flip Left"
+        elif key == ord('p'):
+            movement.flipRight()
+            command_text = "Flip Right"
 
 
         # --- Update the state of pressed keys ---
