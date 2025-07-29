@@ -102,6 +102,20 @@ def ccw():
             sent = sock.sendto('ccw 90'.encode(encoding="utf-8"), TELLO_ADDRESS)
         except:
             pass
+
+# 右回りにゆっくり回転(10 deg)
+def cw_slow():
+        try:
+            sent = sock.sendto('cw 10'.encode(encoding="utf-8"), TELLO_ADDRESS)
+        except:
+            pass
+# 左回りにゆっくり回転(10 deg)
+def ccw_slow():
+        try:
+            sent = sock.sendto('ccw 10'.encode(encoding="utf-8"), TELLO_ADDRESS)
+        except:
+            pass
+
 # 速度変更(例：速度40cm/sec, 0 < speed < 100)
 def set_speed(n=40):
         try:
