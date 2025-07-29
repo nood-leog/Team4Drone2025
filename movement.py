@@ -31,23 +31,5 @@ class TelloMovement:
         """Sends the emergency stop command."""
         self.networking.send_command('stop')
 
-    def flipLeft(self):
-        """Sends the flip left command."""
-        self.networking.send_command('flip l')
-
-    def flipRight(self):
-        """Sends the flip right command."""
-        self.networking.send_command('flip r')
-
-    def flipForward(self):
-        """Sends the flip forward command."""
-        self.networking.send_command('flip f')
-
-    def flipBackward(self):
-        """Sends the flip backward command."""
-        self.networking.send_command('flip b')
-
-    
-
     # Note: The old movement functions (up, down, forward, etc.) are no longer
     # used by main.py but can be kept for other potential uses.
