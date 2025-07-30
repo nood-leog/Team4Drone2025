@@ -5,6 +5,8 @@ import sys
 from networking import TelloNetworking
 from movement import TelloMovement
 from pynput import keyboard
+
+
 key_states = {
         'w': False, 's': False, 'a': False, 'd': False, # Forward/Back, Left/Right
         'q': False, 'e': False,                         # Yaw (Rotation)
@@ -15,6 +17,10 @@ def main():
     # Initialize networking and movement controllers
     networking = TelloNetworking()
     movement = TelloMovement(networking)
+    
+    qcd = cv2.QRCodeDetector()
+    qr_data = "No QR Code Detected"
+    cnt_frame = 0
 
     # Start the status receiving and asking threads
     recv_thread = threading.Thread(target=networking.udp_receiver)
@@ -48,6 +54,25 @@ def main():
 
     while True:
         ret, frame = cap.read()
+        
+        if ret:
+            frame_resized = cv2.resize(frame, (frame.shape[1] // 2, frame.shape[0] // 2))
+        else:
+            networking.is_connected = False
+            frame = cv2.UMat(480, 640, cv2.CV_8UC3)
+            frame.setTo([0, 0, 0])
+            frame_resized = cv2.resize(frame, (frame.shape[1] // 2, frame.shape[0] // 2))
+        
+        cnt_frame += 1
+        if cnt_frame % 5 == 0:  # Process every 10th frame for QR code detection
+            retval, decoded_info, points, straight_qrcode = qcd.detectAndDecodeMulti(frame)
+            if retval:
+                qr_data = ", ".join(decoded_info)
+                points_resized = (points / 2).astype(int)  # Adjust points for resized frame
+                frame_resized = cv2.polylines(frame_resized, points_resized, True, (0, 255, 0), 3)
+            else:
+                qr_data = "No QR Code Detected"
+        
         if not ret:
             networking.is_connected = False
             frame = cv2.UMat(480, 640, cv2.CV_8UC3)
@@ -129,6 +154,7 @@ def main():
             cv2.putText(frame_resized, networking.battery_text, (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
             cv2.putText(frame_resized, networking.time_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
             cv2.putText(frame_resized, networking.status_text, (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            cv2.putText(frame_resized, f"QR: {qr_data}", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
         else:
             cv2.putText(frame_resized, "DRONE NOT CONNECTED!", (20, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
