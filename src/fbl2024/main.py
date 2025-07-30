@@ -49,7 +49,7 @@ def main():
     # --- New variables for continuous control ---
     command_text = "None"
     # Sensity of the movement
-    SPEED = 50
+    SPEED = 75
     # Dictionary to keep track of which keys are currently pressed
 
     while True:
@@ -131,14 +131,14 @@ def main():
         elif key_states['d']:
             lr = SPEED
         ud = 0
-        if key_states['r']:
+        if key_states['i']:
             ud = SPEED
-        elif key_states['c']:
+        elif key_states['j']:
             ud = -SPEED
         yaw = 0
-        if key_states['q']: # Rotate left
+        if key_states['u']: # Rotate left
             yaw = -SPEED
-        elif key_states['e']: # Rotate right
+        elif key_states['o']: # Rotate right
             yaw = SPEED
 
         # Send the command to the drone
