@@ -80,7 +80,7 @@ def main():
                 movement.send_rc_control(0, 0, 0, 0)
             
             if linetracer.flag == 0:
-                fb = fb = SPEED if key_states['w'] else -SPEED if key_states['s'] else 0
+                fb = SPEED if key_states['w'] else -SPEED if key_states['s'] else 0
                 lr = -SPEED if key_states['a'] else SPEED if key_states['d'] else 0
                 ud = SPEED if key_states['i'] else -SPEED if key_states['j'] else 0
                 yaw = -SPEED if key_states['u'] else SPEED if key_states['o'] else 0
