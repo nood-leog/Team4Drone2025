@@ -13,6 +13,10 @@ class LineTracer:
         # Movement control
         self.speed = 0
         self.flag = 0
+        # Altitude control
+        self.altitude = 100  # Default altitude in cm
+        self.max_altitude = 200
+        self.min_altitude = 50
         # Status tracking
         self.status_message = "Initializing..."
         self.status_color = (255, 255, 255)  # White text by default
@@ -28,11 +32,16 @@ class LineTracer:
         cv2.createTrackbar("Sensitivity", window_title, self.sensitivity, 100, self.on_trackbar)
         # Speed control
         cv2.createTrackbar("Speed", window_title, self.speed, 100, self.on_trackbar)
+        # Altitude control
+        cv2.createTrackbar("Altitude (cm)", window_title, self.altitude, self.max_altitude, self.on_trackbar)
 
     def on_trackbar(self, val):
         pass
 
     def process_frame(self, frame):
+        if frame is None:
+            return None
+
         # Resize and crop ROI
         small_image = cv2.resize(frame, dsize=(480, 360))
         roi_image = small_image[250:359, 0:479]
@@ -43,6 +52,10 @@ class LineTracer:
         self.target_b = cv2.getTrackbarPos("Target B", "OpenCV Window")
         self.sensitivity = cv2.getTrackbarPos("Sensitivity", "OpenCV Window")
         self.speed = cv2.getTrackbarPos("Speed", "OpenCV Window")
+        self.altitude = cv2.getTrackbarPos("Altitude (cm)", "OpenCV Window")
+
+        # Ensure altitude is within safe range
+        self.altitude = max(self.min_altitude, min(self.altitude, self.max_altitude))
 
         # Create color bounds based on target color and sensitivity
         lower_bound = np.array([
@@ -108,12 +121,22 @@ class LineTracer:
                 
                 d = 70 if d > 70.0 else d
                 d = -70 if d < -70.0 else d
+
+                # Calculate altitude adjustment
+                current_height = self.movement.get_height()
+                altitude_diff = self.altitude - current_height
+                altitude_speed = max(-50, min(50, altitude_diff))  # Limit vertical speed
+                
+                if abs(altitude_diff) > 10:
+                    self.status_message = f"Adjusting Altitude ({current_height}->{self.altitude}cm)..."
+                    self.status_color = (255, 192, 203)  # Pink
                 
                 if self.speed == 0:
                     self.status_message = "Stopped"
                     self.status_color = (0, 0, 255)  # Red
                 
-                self.movement.send_rc_control(0, self.speed, 0, int(d))
+                # Send movement command with altitude adjustment
+                self.movement.send_rc_control(0, self.speed, altitude_speed, int(d))
             else:
                 self.status_message = "Line Found! (Control Disabled)"
                 self.status_color = (255, 255, 0)  # Yellow
@@ -126,8 +149,9 @@ class LineTracer:
         cv2.putText(masked_image, self.status_message, (10, 20), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, self.status_color, 2)
         
-        # Add additional telemetry
-        telemetry = f"Speed: {self.speed}% | Sensitivity: {self.sensitivity}"
+        # Add additional telemetry including altitude
+        current_height = self.movement.get_height()
+        telemetry = f"Speed: {self.speed}% | Alt: {current_height}/{self.altitude}cm | Sens: {self.sensitivity}"
         cv2.putText(masked_image, telemetry, (240, 20),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
 
