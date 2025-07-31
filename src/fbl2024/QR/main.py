@@ -5,12 +5,14 @@ import sys
 from networking import TelloNetworking
 from movement import TelloMovement
 from pynput import keyboard
+import os
+import datetime
 
 
 key_states = {
         'w': False, 's': False, 'a': False, 'd': False, # Forward/Back, Left/Right
-        'q': False, 'e': False,                         # Yaw (Rotation)
-        'r': False, 'c': False                          # Up/Down
+        'u': False, 'o': False,                         # Yaw (Rotation)
+        'i': False, 'j': False                          # Up/Down
     }
 
 def main():
@@ -21,6 +23,8 @@ def main():
     qcd = cv2.QRCodeDetector()
     qr_data = "No QR Code Detected"
     cnt_frame = 0
+    
+    scanned_numbers = set()
 
     # Start the status receiving and asking threads
     recv_thread = threading.Thread(target=networking.udp_receiver)
@@ -46,6 +50,9 @@ def main():
 
     listner = keyboard.Listener(on_press=on_press, on_release=on_release)
     listner.start()
+    
+    photo_dir = "Photo"
+    os.makedirs(photo_dir, exist_ok=True)
     # --- New variables for continuous control ---
     command_text = "None"
     # Sensity of the movement
@@ -65,9 +72,15 @@ def main():
         
         cnt_frame += 1
         if cnt_frame % 5 == 0:  # Process every 10th frame for QR code detection
-            retval, decoded_info, points, straight_qrcode = qcd.detectAndDecodeMulti(frame)
+            gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            # blurred_frame = cv2.medianBlur(gray_frame, 5)
+            # binary_frame = cv2.adaptiveThreshold(blurred_frame, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+            retval, decoded_info, points, straight_qrcode = qcd.detectAndDecodeMulti(gray_frame)
             if retval:
                 qr_data = ", ".join(decoded_info)
+                for info in decoded_info:
+                    if info.isdigit():
+                        scanned_numbers.add(int(info))
                 points_resized = (points / 2).astype(int)  # Adjust points for resized frame
                 frame_resized = cv2.polylines(frame_resized, points_resized, True, (0, 255, 0), 3)
             else:
@@ -96,10 +109,11 @@ def main():
             movement.land()
             command_text = "Land"
         elif key_cv2 == ord(' '): # Spacebar for emergency stop
-            movement.stop()
-            command_text = "EMERGENCY STOP"
-            # Reset all RC values to 0
-            for k in key_states: key_states[k] = False
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            file_path = os.path.join(photo_dir, f"tello_photo_{timestamp}.jpg")
+            cv2.imwrite(file_path, frame)
+            command_text = "Photo taken"
+            # for k in key_states: key_states[k] = False
 
 
         # --- Update the state of pressed keys ---
@@ -155,6 +169,9 @@ def main():
             cv2.putText(frame_resized, networking.time_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
             cv2.putText(frame_resized, networking.status_text, (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
             cv2.putText(frame_resized, f"QR: {qr_data}", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            
+            numbers_text = f"Scanned Numbers: {scanned_numbers}"
+            cv2.putText(frame_resized, numbers_text, (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
         else:
             cv2.putText(frame_resized, "DRONE NOT CONNECTED!", (20, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
