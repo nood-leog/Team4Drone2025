@@ -1,161 +1,168 @@
 import cv2
 import numpy as np
+from typing import Tuple, Optional
+import time
 
 class LineTracer:
     def __init__(self, movement):
         self.movement = movement
-        # RGB target color (default: yellow)
-        self.target_r = 255
-        self.target_g = 255
-        self.target_b = 0
-        # Color sensitivity (how much deviation from target color is allowed)
-        self.sensitivity = 30
-        # Movement control
-        self.speed = 0
-        self.flag = 0
-        # Altitude control
-        self.altitude = 100  # Default altitude in cm
-        self.max_altitude = 200
-        self.min_altitude = 50
-        # Status tracking
-        self.status_message = "Initializing..."
-        self.status_color = (255, 255, 255)  # White text by default
-
-    def create_trackbars(self, window_title):
-        # Create window for trackbars
-        cv2.namedWindow(window_title)
-        # RGB target color controls
-        cv2.createTrackbar("Target R", window_title, self.target_r, 255, self.on_trackbar)
-        cv2.createTrackbar("Target G", window_title, self.target_g, 255, self.on_trackbar)
-        cv2.createTrackbar("Target B", window_title, self.target_b, 255, self.on_trackbar)
-        # Sensitivity control
-        cv2.createTrackbar("Sensitivity", window_title, self.sensitivity, 100, self.on_trackbar)
-        # Speed control
-        cv2.createTrackbar("Speed", window_title, self.speed, 100, self.on_trackbar)
-        # Altitude control
-        cv2.createTrackbar("Altitude (cm)", window_title, self.altitude, self.max_altitude, self.on_trackbar)
-
-    def on_trackbar(self, val):
-        pass
-
-    def process_frame(self, frame):
-        if frame is None:
-            return None
-
-        # Resize and crop ROI
-        small_image = cv2.resize(frame, dsize=(480, 360))
-        roi_image = small_image[250:359, 0:479]
-
-        # Get current trackbar positions
-        self.target_r = cv2.getTrackbarPos("Target R", "OpenCV Window")
-        self.target_g = cv2.getTrackbarPos("Target G", "OpenCV Window")
-        self.target_b = cv2.getTrackbarPos("Target B", "OpenCV Window")
-        self.sensitivity = cv2.getTrackbarPos("Sensitivity", "OpenCV Window")
-        self.speed = cv2.getTrackbarPos("Speed", "OpenCV Window")
-        self.altitude = cv2.getTrackbarPos("Altitude (cm)", "OpenCV Window")
-
-        # Ensure altitude is within safe range
-        self.altitude = max(self.min_altitude, min(self.altitude, self.max_altitude))
-
-        # Create color bounds based on target color and sensitivity
-        lower_bound = np.array([
-            max(0, self.target_b - self.sensitivity),
-            max(0, self.target_g - self.sensitivity),
-            max(0, self.target_r - self.sensitivity)
-        ])
-        upper_bound = np.array([
-            min(255, self.target_b + self.sensitivity),
-            min(255, self.target_g + self.sensitivity),
-            min(255, self.target_r + self.sensitivity)
-        ])
-
-        # Create mask for color detection
-        mask = cv2.inRange(roi_image, lower_bound, upper_bound)
         
-        # Apply morphological operations
-        kernel = np.ones((15, 15), np.uint8)
-        mask = cv2.dilate(mask, kernel, iterations=1)
+        # Performance optimization
+        self.frame_width = 480
+        self.frame_height = 360
+        self.roi_height = 100  # Smaller ROI for faster processing
+        self.fps_limit = 30
+        self.last_frame_time = 0
+        
+        # Line detection parameters
+        self.yellow_lower = np.array([20, 100, 100])  # HSV yellow range
+        self.yellow_upper = np.array([30, 255, 255])
+        self.min_line_area = 500  # Minimum area to consider as valid line
+        self.corner_detection_threshold = 0.8
+        
+        # PID Controller parameters
+        self.kp = 0.8  # Proportional gain
+        self.ki = 0.1  # Integral gain
+        self.kd = 0.2  # Derivative gain
+        self.integral = 0
+        self.last_error = 0
+        
+        # Movement parameters
+        self.base_speed = 50
+        self.max_turn_speed = 70
+        self.racing_altitude = 100  # cm
+        self.corner_slowdown = 0.7  # Speed multiplier at corners
+        
+        # State tracking
+        self.lost_line_counter = 0
+        self.max_lost_frames = 10
+        self.corner_detected = False
+        self.last_valid_center = None
+
+    def detect_line(self, roi_frame) -> Tuple[bool, Optional[np.ndarray], float]:
+        """
+        High-performance line detection using HSV color space
+        Returns: (line_found, center_point, line_angle)
+        """
+        # Convert to HSV for better color segmentation
+        hsv = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2HSV)
+        
+        # Create mask for yellow color
+        mask = cv2.inRange(hsv, self.yellow_lower, self.yellow_upper)
+        
+        # Optimized morphological operations
+        kernel = np.ones((5,5), np.uint8)
+        mask = cv2.erode(mask, kernel, iterations=1)
+        mask = cv2.dilate(mask, kernel, iterations=2)
         
         # Find contours
-        masked_image = cv2.bitwise_and(roi_image, roi_image, mask=mask)
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
-        # Connected components analysis
-        num_labels, label_image, stats, center = cv2.connectedComponentsWithStats(mask)
-        num_labels = num_labels - 1
-        
-        # Create status overlay background
-        status_overlay = np.zeros((30, 480, 3), dtype=np.uint8)
-        
-        if num_labels >= 1:
-            stats = np.delete(stats, 0, 0)
-            center = np.delete(center, 0, 0)
+        if not contours:
+            return False, None, 0.0
             
-            max_index = np.argmax(stats[:, 4])
-            x = stats[max_index][0]
-            y = stats[max_index][1]
-            w = stats[max_index][2]
-            h = stats[max_index][3]
-            s = stats[max_index][4]
-            mx = int(center[max_index][0])
-            my = int(center[max_index][1])
-
-            # Draw bounding box and area
-            cv2.rectangle(masked_image, (x, y), (x + w, y + h), (255, 0, 255), 2)
-            cv2.putText(masked_image, f"Area: {s}", (x, y + h + 15), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
-
-            if self.flag == 1:
-                dx = 1.0 * (240 - mx)
-                if abs(dx) < 50.0:
-                    self.status_message = "Moving Forward!"
-                    self.status_color = (0, 255, 0)  # Green
-                    d = 0.0
-                else:
-                    if dx > 0:
-                        self.status_message = "Turning Right..."
-                        self.status_color = (255, 165, 0)  # Orange
-                    else:
-                        self.status_message = "Turning Left..."
-                        self.status_color = (255, 165, 0)  # Orange
-                    d = -dx
-                
-                d = 70 if d > 70.0 else d
-                d = -70 if d < -70.0 else d
-
-                # Calculate altitude adjustment
-                current_height = self.movement.get_height()
-                altitude_diff = self.altitude - current_height
-                altitude_speed = max(-50, min(50, altitude_diff))  # Limit vertical speed
-                
-                if abs(altitude_diff) > 10:
-                    self.status_message = f"Adjusting Altitude ({current_height}->{self.altitude}cm)..."
-                    self.status_color = (255, 192, 203)  # Pink
-                
-                if self.speed == 0:
-                    self.status_message = "Stopped"
-                    self.status_color = (0, 0, 255)  # Red
-                
-                # Send movement command with altitude adjustment
-                self.movement.send_rc_control(0, self.speed, altitude_speed, int(d))
-            else:
-                self.status_message = "Line Found! (Control Disabled)"
-                self.status_color = (255, 255, 0)  # Yellow
-        else:
-            self.status_message = "Searching for Line..."
-            self.status_color = (128, 0, 128)  # Purple
-
-        # Draw status message
-        cv2.rectangle(masked_image, (0, 0), (480, 30), (0, 0, 0), -1)
-        cv2.putText(masked_image, self.status_message, (10, 20), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, self.status_color, 2)
+        # Get largest contour
+        largest_contour = max(contours, key=cv2.contourArea)
+        if cv2.contourArea(largest_contour) < self.min_line_area:
+            return False, None, 0.0
+            
+        # Get center and angle of line
+        M = cv2.moments(largest_contour)
+        if M["m00"] == 0:
+            return False, None, 0.0
+            
+        cx = int(M["m10"] / M["m00"])
+        cy = int(M["m01"] / M["m00"])
+        center = np.array([cx, cy])
         
-        # Add additional telemetry including altitude
-        current_height = self.movement.get_height()
-        telemetry = f"Speed: {self.speed}% | Alt: {current_height}/{self.altitude}cm | Sens: {self.sensitivity}"
-        cv2.putText(masked_image, telemetry, (240, 20),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+        # Calculate line angle using PCA
+        points = np.float32(largest_contour).reshape(-1, 2)
+        _, _, vh = np.linalg.svd(points - np.mean(points, axis=0))
+        angle = np.arctan2(vh[0][1], vh[0][0])
+        
+        return True, center, angle
 
-        return masked_image
+    def detect_corner(self, mask) -> bool:
+        """
+        Detect corners using Harris corner detector
+        """
+        corners = cv2.goodFeaturesToTrack(mask, 4, 0.01, 30)
+        return corners is not None and len(corners) >= 2
+
+    def calculate_pid_control(self, error: float) -> float:
+        """
+        PID controller for smooth line following
+        """
+        self.integral += error
+        derivative = error - self.last_error
+        self.last_error = error
+        
+        # Anti-windup
+        self.integral = np.clip(self.integral, -100, 100)
+        
+        return (self.kp * error + 
+                self.ki * self.integral + 
+                self.kd * derivative)
+
+    def process_frame(self, frame):
+        # Frame rate control
+        current_time = time.time()
+        if current_time - self.last_frame_time < 1.0/self.fps_limit:
+            return None
+        self.last_frame_time = current_time
+        
+        # Resize and extract ROI
+        frame = cv2.resize(frame, (self.frame_width, self.frame_height))
+        roi = frame[self.frame_height-self.roi_height:self.frame_height, :]
+        
+        # Detect line
+        line_found, center, angle = self.detect_line(roi)
+        
+        if not line_found:
+            self.lost_line_counter += 1
+            if self.lost_line_counter > self.max_lost_frames:
+                self.movement.send_rc_control(0, 0, 0, 0)  # Stop if line lost
+                return frame
+            # Use last known position if available
+            if self.last_valid_center is not None:
+                center = self.last_valid_center
+        else:
+            self.lost_line_counter = 0
+            self.last_valid_center = center
+            
+        # Calculate error from center
+        error = (self.frame_width/2 - center[0]) / (self.frame_width/2)  # Normalized error
+        
+        # Get PID control value
+        control = self.calculate_pid_control(error)
+        
+        # Detect corners for speed adjustment
+        self.corner_detected = self.detect_corner(cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY))
+        speed = self.base_speed * (self.corner_slowdown if self.corner_detected else 1.0)
+        
+        # Send control commands
+        turn_rate = int(np.clip(control * self.max_turn_speed, -self.max_turn_speed, self.max_turn_speed))
+        self.movement.send_rc_control(0, int(speed), 0, turn_rate)
+        
+        # Visualization
+        cv2.rectangle(frame, (0, self.frame_height-self.roi_height), 
+                     (self.frame_width, self.frame_height), (0,255,0), 2)
+        
+        if line_found:
+            cv2.circle(frame, (int(center[0]), 
+                             int(center[1] + self.frame_height-self.roi_height)), 
+                      5, (0,0,255), -1)
+            
+        # Add telemetry
+        cv2.putText(frame, f"Error: {error:.2f}", (10, 30), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
+        cv2.putText(frame, f"Speed: {speed}", (10, 60), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
+        cv2.putText(frame, "CORNER" if self.corner_detected else "STRAIGHT", 
+                   (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, 
+                   (0,0,255) if self.corner_detected else (0,255,0), 2)
+        
+        return frame
 
     def __del__(self):
         cv2.destroyAllWindows()
