@@ -12,7 +12,7 @@ class LineTracer:
         self.v_min = 0
         self.v_max = 255
         self.flag = 0
-        self.b = 0
+        self.b = 10
 
     def create_trackbars(self, window_title):
         cv2.createTrackbar("H_min", window_title, self.h_min, 179, self.on_trackbar)
